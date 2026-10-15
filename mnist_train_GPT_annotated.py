@@ -91,7 +91,5 @@ print("Accuracy: " + str(correct_ans / total) + "\n")
 
 # 保存此线性层的权重和偏置；恢复时先创建相同结构，再 load_state_dict。
 state = linear.state_dict()
-torch.save(state, "/home/luming/project/pytorch exercise/mnist_linear_training.pt")
-print(
-    "Parameters saved to /home/luming/project/pytorch exercise/mnist_linear_training.pt"
-)
+torch.save(state, "./mnist_linear_training.pt")
+print("Parameters saved to ./mnist_linear_training.pt")

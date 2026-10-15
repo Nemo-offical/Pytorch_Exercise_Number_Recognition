@@ -63,7 +63,5 @@ print("Cases passed: " + str(correct_ans))
 print("Accuracy: " + str(correct_ans / total) + "\n")
 
 state = linear.state_dict()
-torch.save(state, "/home/luming/project/pytorch exercise/mnist_linear_training.pt")
-print(
-    "Parameters saved to /home/luming/project/pytorch exercise/mnist_linear_training.pt"
-)
+torch.save(state, "./mnist_linear_training.pt")
+print("Parameters saved to ./mnist_linear_training.pt")
