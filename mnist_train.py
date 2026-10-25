@@ -1,7 +1,29 @@
 from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 from torch import nn
 import torch
+
+
+def evaluate(model, data_loader, loss_fn):
+    ## An evaluator used to monitor model's performence on a selected dataset with a given loss function.
+    model.eval()
+    correct_ans = 0
+    total = 0
+    loss_sum = 0.0
+    with torch.no_grad():
+        for images, labels in data_loader:
+            flat_images = flatten(images)
+            scores = model(flat_images)
+            predictions = scores.argmax(dim=1)
+            loss = loss_fn(scores, labels)
+            loss_sum += loss.item() * labels.shape[0]
+            correct_ans += (predictions == labels).sum().item()
+            total += labels.shape[0]
+
+    avg_loss = loss_sum / total
+    accuracy = correct_ans / total
+    return correct_ans, total, avg_loss, accuracy
+
 
 torch.manual_seed(42)
 
@@ -15,30 +37,84 @@ loss_fn = nn.CrossEntropyLoss()
 
 optimizer = torch.optim.SGD(linear.parameters(), lr=0.01)
 
-train_data = datasets.MNIST(
+full_train_data = datasets.MNIST(
     root="./data", train=True, download=False, transform=to_tensor
+)
+
+train_data, val_data = random_split(
+    full_train_data, lengths=[50000, 10000], generator=torch.Generator().manual_seed(42)
 )
 
 train_loader = DataLoader(dataset=train_data, batch_size=64, shuffle=True)
 
-training_step = 0
+val_loader = DataLoader(dataset=val_data, batch_size=64, shuffle=False)
 
-print("----------Training starts----------\n")
+epochs = 20
+best_val_loss = float("inf")
+best_epoch = 0
 
-for images, labels in train_loader:
-    optimizer.zero_grad()
-    flat_images = flatten(images)
-    scores = linear(flat_images)
-    predictions = scores.argmax(dim=1)
-    loss = loss_fn(scores, labels)
-    loss.backward()
-    optimizer.step()
+for epoch in range(epochs):
+    print("\nEpoch:", epoch + 1, "/", epochs)
 
-    training_step += 1
-    if training_step % 100 == 0:
-        print("batch:", training_step, "loss:", loss.item())
+    linear.train()
+    training_step = 0
+    train_loss_sum = 0.0
+    train_total = 0
 
-print("Training completed with " + str(training_step) + " steps.")
+    print("----------Training starts----------\n")
+
+    for images, labels in train_loader:
+        optimizer.zero_grad()
+        flat_images = flatten(images)
+        scores = linear(flat_images)
+        predictions = scores.argmax(dim=1)
+        loss = loss_fn(scores, labels)
+        train_loss_sum += loss.item() * labels.shape[0]
+        train_total += labels.shape[0]
+        loss.backward()
+        optimizer.step()
+
+        training_step += 1
+        if training_step % 100 == 0:
+            print("batch:", training_step, "loss:", loss.item())
+
+    print("Training completed with " + str(training_step) + " steps.")
+    print("Average training loss: " + str(train_loss_sum / train_total))
+
+    print("----------Validation starts----------\n")
+
+    (val_correct_ans, val_total, avg_val_loss, val_accuracy) = evaluate(
+        linear, val_loader, loss_fn
+    )
+    print("Cases tested: ", val_total)
+    print("Cases passed: ", val_correct_ans)
+    print("Accuracy: ", val_accuracy)
+    print("Average loss: ", avg_val_loss)
+
+    if avg_val_loss < best_val_loss:
+        best_val_loss = avg_val_loss
+        best_epoch = epoch + 1
+        state = linear.state_dict()
+        torch.save(state, "./mnist_linear_training.pt")
+        print(
+            "Parameters in epoch",
+            best_epoch,
+            "is saved to ./mnist_linear_training.pt",
+        )
+
+print("Training and validation done in", epochs, "epochs.\n")
+print("Best epoch: ", best_epoch)
+print("Best validation loss: ", best_val_loss)
+##state = linear.state_dict()
+##torch.save(state, "./mnist_linear_training.pt")
+##print("Parameters saved to ./mnist_linear_training.pt")
+
+print("\n----------Testing starts----------\n")
+
+best_linear = nn.Linear(in_features=28**2, out_features=10)
+saved_state = torch.load("./mnist_linear_training.pt", weights_only=True)
+best_linear.load_state_dict(saved_state)
+best_linear.eval()
 
 test_data = datasets.MNIST(
     root="./data", train=False, download=False, transform=to_tensor
@@ -46,22 +122,10 @@ test_data = datasets.MNIST(
 
 test_loader = DataLoader(dataset=test_data, batch_size=64, shuffle=False)
 
-linear.eval()
-correct_ans = 0
-total = 0
-print("\n----------Testing starts----------\n")
-with torch.no_grad():
-    for images, labels in test_loader:
-        flat_images = flatten(images)
-        scores = linear(flat_images)
-        predictions = scores.argmax(dim=1)
-        correct_ans += (predictions == labels).sum().item()
-        total += labels.shape[0]
-
-print("Cases tested: " + str(total))
-print("Cases passed: " + str(correct_ans))
-print("Accuracy: " + str(correct_ans / total) + "\n")
-
-state = linear.state_dict()
-torch.save(state, "./mnist_linear_training.pt")
-print("Parameters saved to ./mnist_linear_training.pt")
+(test_correct_ans, test_total, avg_test_loss, test_accuracy) = evaluate(
+    best_linear, test_loader, loss_fn
+)
+print("Cases tested: ", test_total)
+print("Cases passed: ", test_correct_ans)
+print("Accuracy: ", test_accuracy)
+print("Average loss: ", avg_test_loss)
