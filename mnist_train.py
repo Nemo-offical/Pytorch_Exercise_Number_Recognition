@@ -4,7 +4,7 @@ from torch import nn
 import torch
 
 
-def evaluate(model, data_loader, loss_fn):
+def evaluate(model, data_loader, loss_fn, device):
     ## An evaluator used to monitor model's performence on a selected dataset with a given loss function.
     model.eval()
     correct_ans = 0
@@ -12,6 +12,8 @@ def evaluate(model, data_loader, loss_fn):
     loss_sum = 0.0
     with torch.no_grad():
         for images, labels in data_loader:
+            images = images.to(device)
+            labels = labels.to(device)
             flat_images = flatten(images)
             scores = model(flat_images)
             predictions = scores.argmax(dim=1)
@@ -27,11 +29,14 @@ def evaluate(model, data_loader, loss_fn):
 
 torch.manual_seed(42)
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Using device:", device)
+
 to_tensor = transforms.ToTensor()
 
 flatten = nn.Flatten(start_dim=1)
 
-linear = nn.Linear(in_features=28**2, out_features=10)
+linear = nn.Linear(in_features=28**2, out_features=10).to(device)
 
 loss_fn = nn.CrossEntropyLoss()
 
@@ -49,7 +54,7 @@ train_loader = DataLoader(dataset=train_data, batch_size=64, shuffle=True)
 
 val_loader = DataLoader(dataset=val_data, batch_size=64, shuffle=False)
 
-epochs = 20
+epochs = 1  ## for testing purpose
 best_val_loss = float("inf")
 best_epoch = 0
 
@@ -64,6 +69,8 @@ for epoch in range(epochs):
     print("----------Training starts----------\n")
 
     for images, labels in train_loader:
+        images = images.to(device)
+        labels = labels.to(device)
         optimizer.zero_grad()
         flat_images = flatten(images)
         scores = linear(flat_images)
@@ -84,7 +91,7 @@ for epoch in range(epochs):
     print("----------Validation starts----------\n")
 
     (val_correct_ans, val_total, avg_val_loss, val_accuracy) = evaluate(
-        linear, val_loader, loss_fn
+        linear, val_loader, loss_fn, device
     )
     print("Cases tested: ", val_total)
     print("Cases passed: ", val_correct_ans)
@@ -111,8 +118,10 @@ print("Best validation loss: ", best_val_loss)
 
 print("\n----------Testing starts----------\n")
 
-best_linear = nn.Linear(in_features=28**2, out_features=10)
-saved_state = torch.load("./mnist_linear_training.pt", weights_only=True)
+best_linear = nn.Linear(in_features=28**2, out_features=10).to(device)
+saved_state = torch.load(
+    "./mnist_linear_training.pt", weights_only=True, map_location=device
+)
 best_linear.load_state_dict(saved_state)
 best_linear.eval()
 
@@ -123,7 +132,7 @@ test_data = datasets.MNIST(
 test_loader = DataLoader(dataset=test_data, batch_size=64, shuffle=False)
 
 (test_correct_ans, test_total, avg_test_loss, test_accuracy) = evaluate(
-    best_linear, test_loader, loss_fn
+    best_linear, test_loader, loss_fn, device
 )
 print("Cases tested: ", test_total)
 print("Cases passed: ", test_correct_ans)
