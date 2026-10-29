@@ -64,7 +64,7 @@ train_loader = DataLoader(dataset=train_data, batch_size=64, shuffle=True)
 
 val_loader = DataLoader(dataset=val_data, batch_size=64, shuffle=False)
 
-epochs = 20
+epochs = 40
 best_val_loss = float("inf")
 best_epoch = 0
 
