@@ -64,7 +64,7 @@ train_loader = DataLoader(dataset=train_data, batch_size=64, shuffle=True)
 
 val_loader = DataLoader(dataset=val_data, batch_size=64, shuffle=False)
 
-epochs = 40
+epochs = 200
 best_val_loss = float("inf")
 best_epoch = 0
 
@@ -92,8 +92,8 @@ for epoch in range(epochs):
         optimizer.step()
 
         training_step += 1
-        if training_step % 100 == 0:
-            print("batch:", training_step, "loss:", loss.item())
+        # if training_step % 100 == 0:
+        #    print("batch:", training_step, "loss:", loss.item())
 
     print("Training completed with " + str(training_step) + " steps.")
     print("Average training loss: " + str(train_loss_sum / train_total))
